@@ -36,7 +36,18 @@ public class WiimoteManager extends Thread implements WiiRemoteListener{
 	private HiHat hiHat = new HiHat();
 	private Cymbal cymbal = new Cymbal();
 	
+	private boolean playingHihat = false;
+	private long prevHihatTime = 0;
+	private long prevSnareTime = 0;
 	
+	private double prevWiimoteAccelerometerX = 0;
+	private double prevWiimoteAccelerometerY = 0;
+	private double prevWiimoteAccelerometerZ = 0;
+
+	private double prevNunchukAccelerometerX = 0;
+	private double prevNunchukAccelerometerY = 0;
+	private double prevNunchukAccelerometerZ = 0;
+
 	public WiimoteManager(){
 		this.logger = Logger.getLogger(this.getClass().getName());
 		this.start();
@@ -79,36 +90,68 @@ public class WiimoteManager extends Thread implements WiiRemoteListener{
 		double xAcceleration = evt.getXAcceleration();
 		double yAcceleration = evt.getYAcceleration();
 		double zAcceleration = evt.getZAcceleration();
+
+		long currentTime = System.currentTimeMillis();
 		
-		if(xAcceleration>th && yAcceleration>th && zAcceleration>th){
-			if(!isPressed) {
+		//double t = 0.1;
+		double prevDiffAcceleration = 0.02;
+		if (Math.abs(prevWiimoteAccelerometerX - xAcceleration) < prevDiffAcceleration || 
+				Math.abs(prevWiimoteAccelerometerY - yAcceleration) < prevDiffAcceleration ||
+				Math.abs(prevWiimoteAccelerometerZ - zAcceleration) < prevDiffAcceleration){
+			return;
+		}
+//		if(xAcceleration>th && yAcceleration>th && zAcceleration>th){
+			//System.out.println("  -- **  xA:" + xAcceleration + " yA:" + yAcceleration + " zA:" + zAcceleration);			
+		//}
+		if(xAcceleration>th && yAcceleration>th && zAcceleration>th && 
+				/*xAcceleration > zAcceleration && yAcceleration > zAcceleration && */currentTime - this.prevHihatTime > 200){
+			if(!isPressed && !playingHihat) {
+				playingHihat = true;
+				System.out.println("   xA:" + xAcceleration + " yA:" + yAcceleration + " zA:" + zAcceleration);
 				hiHat.play();
+				this.prevHihatTime = currentTime;
+				playingHihat = false;
+				prevWiimoteAccelerometerX = xAcceleration;
+				prevWiimoteAccelerometerY = yAcceleration;
+				prevWiimoteAccelerometerZ = zAcceleration;
 			}
 		}
 		return;			
 	}
 
-	private void nunchukEventReceived(WRNunchukExtensionEvent evt) throws JavaLayerException{
-		double th = 1.8;
+	private void nunchukEventReceived(WRNunchukExtensionEvent evt) throws JavaLayerException{		
+		double th = 0.4;
 		WRAccelerationEvent accelerationEvent = evt.getAcceleration();
 		double nAccelerationX = accelerationEvent.getXAcceleration();
 		double nAccelerationY = accelerationEvent.getYAcceleration();
 		double nAccelerationZ = accelerationEvent.getZAcceleration();
-		if(nAccelerationX>th && nAccelerationY>th && nAccelerationZ>th){
-			logger.info("nunchuk acceleration:" + nAccelerationX + "," + nAccelerationY + "," + nAccelerationZ);			
+
+		double prevDiffAcceleration = 0.01;
+		if (Math.abs(prevNunchukAccelerometerX - nAccelerationX) < prevDiffAcceleration || 
+				Math.abs(prevNunchukAccelerometerY - nAccelerationY) < prevDiffAcceleration ||
+				Math.abs(prevNunchukAccelerometerZ - nAccelerationZ) < prevDiffAcceleration){
+			return;
+		}
+
+		//if(nAccelerationX>th && nAccelerationY>th && nAccelerationZ>th ){
+		//System.out.println(" --@[x]" + nAccelerationX + " [y]" + nAccelerationY + " [z]" + nAccelerationZ + " [y2]" + nAccelerationY*0.7 + "[z2]" + nAccelerationZ*0.7);
+		//}
+		long currentTime = System.currentTimeMillis();
+		if(nAccelerationX>th && nAccelerationY>th && nAccelerationZ>th &&
+				currentTime - this.prevSnareTime > 250) {
 			snareDrum.play();
-			/*
-			AnalogStickData stick = evt.getAnalogStickData();
-			System.out.println("stick angle : "  + stick.getAngle());
-			System.out.println("stick x : "  + stick.getX());
-			System.out.println("stick y : "  + stick.getY());
-			*/
+			this.prevSnareTime = currentTime;
+			
+			prevNunchukAccelerometerX = nAccelerationX;
+			prevNunchukAccelerometerY = nAccelerationY;
+			prevNunchukAccelerometerZ = nAccelerationZ;
 		}
 	}
 	
 	public void buttonInputReceived(WRButtonEvent evt) {
 		isPressed = true;
 		if(evt.wasPressed(WRButtonEvent.A)){
+			//snareDrum.play();
 			tom.play();
 		} else if(evt.wasPressed(WRButtonEvent.B)) {
 			cymbal.play();
